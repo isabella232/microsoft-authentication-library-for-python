@@ -4,7 +4,12 @@ Mid-tier supports these Windows versions
 https://github.com/AzureAD/microsoft-authentication-library-for-cpp/pull/2406/files
 """
 from threading import Event
+import logging
+
 import pymsalruntime  # See https://github.com/AzureAD/microsoft-authentication-library-for-cpp/pull/2419/files#diff-d5ea5122ff04e14411a4f695895c923daba73c117d6c8ceb19c4fa3520c3c08a
+
+
+logger = logging.getLogger(__name__)
 
 
 class _CallbackData:
@@ -21,21 +26,24 @@ def _read_account_by_id(account_id):
     callback_data = _CallbackData()
     pymsalruntime.read_account_by_id(
         account_id,
+        lambda result, callback_data=callback_data: callback_data.complete(result)
+        )
+    callback_data.signal.wait()
+    return callback_data.auth_result
+
+def _signin_silently(authority, client_id):
+    params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
+    callback_data = _CallbackData()
+    pymsalruntime.signin_silently(
+        params,
+        "correlation", # TODO
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
     return callback_data.auth_result
 
-def _signin_silent():
+def _signin_interactively():
     callback_data = _CallbackData()
-    pymsalruntime.signin_silent(
-        # TODO: Add other input parameters
-        lambda result, callback_data=callback_data: callback_data.complete(result))
-    callback_data.signal.wait()
-    return callback_data.auth_result
-
-def _signin_interactive():
-    callback_data = _CallbackData()
-    pymsalruntime.signin_interactive(
+    pymsalruntime.signin_interactively(
         # TODO: Add other input parameters
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
@@ -44,10 +52,9 @@ def _signin_interactive():
 def _acquire_token_silently(authority, client_id, account):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     callback_data = _CallbackData()
-    pymsalruntime.signin_interactive(
+    pymsalruntime.signin_silently(
         params,
         "correlation", # TODO
-        account,
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
     return callback_data.auth_result
@@ -70,10 +77,10 @@ def _acquire_token_interactive(
     if login_hint:
         params.set_login_hint(login_hint)
     if claims_challenge:
-        params.set_claims(claims_challenge
+        params.set_claims(claims_challenge)
     # TODO: Wire up other input parameters too
     callback_data = _CallbackData()
-    pymsalruntime.signin_interactive(
+    pymsalruntime.signin_interactively(
         params,
         "correlation", # TODO
         account,
@@ -88,9 +95,10 @@ def acquire_token_interactive(
         scopes,  # type: list[str]
         **kwargs):
     """MSAL Python's acquire_token_interactive() will call this"""
-    result = _signin_silent(authority, client_id)
+    result = _signin_silently(authority, client_id)
+    logger.debug("%s, %s, %s", result, dir(result), result.get_error())
     if not result.get_account():
-        result = _signin_interactive(authority, client_id)
+        result = _signin_interactively(authority, client_id)
     if not result.get_account():
         return {"error": result.get_error()}  # TODO
 
