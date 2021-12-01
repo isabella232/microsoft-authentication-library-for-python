@@ -35,10 +35,17 @@ def _read_account_by_id(account_id):
 
 
 def _convert_result(result):
+    error = result.get_error()
+    if error:
+        return {
+            "error": "broker_error",
+            "error_description": "{}. Status: {}, Error code: {}, Tag: {}".format(
+                error.get_context(),  # Available since pymsalruntime 0.0.4
+                error.get_status(), error.get_error_code(), error.get_tag()),
+            }
     return {k: v for k, v in {
-        "error": result.get_error(),
         "access_token": result.get_access_token(),
-        #"expires_in": result.get_access_token_expiry_time(),  # TODO
+        "expires_in": result.get_access_token_expiry_time(),
         #"scope": result.get_granted_scopes(),  # TODO
         "id_token_claims": json.loads(result.get_id_token())
             if result.get_id_token() else None,
