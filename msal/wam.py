@@ -10,7 +10,6 @@ import logging
 import pymsalruntime  # See https://github.com/AzureAD/microsoft-authentication-library-for-cpp/pull/2419/files#diff-d5ea5122ff04e14411a4f695895c923daba73c117d6c8ceb19c4fa3520c3c08a
 import win32gui  # Came from package pywin32
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -28,13 +27,14 @@ def _read_account_by_id(account_id):
     callback_data = _CallbackData()
     pymsalruntime.read_account_by_id(
         account_id,
+        "correlation_id",
         lambda result, callback_data=callback_data: callback_data.complete(result)
         )
     callback_data.signal.wait()
     return callback_data.auth_result
 
 
-def _convert_result(result):
+def _convert_result(result):  # Mimic an on-the-wire response from AAD
     error = result.get_error()
     if error:
         return {
@@ -43,13 +43,15 @@ def _convert_result(result):
                 error.get_context(),  # Available since pymsalruntime 0.0.4
                 error.get_status(), error.get_error_code(), error.get_tag()),
             }
+    id_token_claims = json.loads(result.get_id_token()) if result.get_id_token() else {}
+    account = result.get_account()
+    assert account.get_account_id() == id_token_claims.get("oid"), "Emperical observation"  # TBD
     return {k: v for k, v in {
         "access_token": result.get_access_token(),
         "expires_in": result.get_access_token_expiry_time(),
         #"scope": result.get_granted_scopes(),  # TODO
-        "id_token_claims": json.loads(result.get_id_token())
-            if result.get_id_token() else None,
-        "account": result.get_account(),
+        "id_token_claims": id_token_claims,
+        "client_info": account.get_client_info(),
         }.items() if v}
 
 

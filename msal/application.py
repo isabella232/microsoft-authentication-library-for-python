@@ -1213,6 +1213,13 @@ class ClientApplication(object):
             refresh_reason = msal.telemetry.FORCE_REFRESH  # TODO: It could also mean claims_challenge
         assert refresh_reason, "It should have been established at this point"
         try:
+            if sys.platform == "win32":
+                from .wam import _acquire_token_silently, _read_account_by_id
+                return _acquire_token_silently(
+                    "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
+                    self.client_id,
+                    _read_account_by_id(account["local_account_id"]),
+                    " ".join(scopes))
             result = _clean_up(self._acquire_token_silent_by_finding_rt_belongs_to_me_or_my_family(
                 authority, self._decorate_scope(scopes), account,
                 refresh_reason=refresh_reason, claims_challenge=claims_challenge,
@@ -1553,6 +1560,23 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
               and typically contains an "access_token" key.
             - A dict containing an "error" key, when token refresh failed.
         """
+        if sys.platform == "win32":
+            from .wam import _signin_interactively
+            response = _signin_interactively(
+                "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
+                self.client_id,
+                " ".join(scopes),
+                login_hint=login_hint)
+            if response.get("error") != "TBD: Broker Unavailable":  # TODO
+                self.token_cache.add(dict(
+                    client_id=self.client_id,
+                    scope=scopes,
+                    token_endpoint=self.authority.token_endpoint,
+                    response=response.copy(),
+                    data=kwargs.get("data", {}),
+                    ))
+                return response
+
         self._validate_ssh_cert_input_data(kwargs.get("data", {}))
         claims = _merge_claims_challenge_and_capabilities(
             self._client_capabilities, claims_challenge)

@@ -150,7 +150,8 @@ class TokenCache(object):
         id_token = response.get("id_token")
         id_token_claims = (
             decode_id_token(id_token, client_id=event["client_id"])
-            if id_token else {})
+            if id_token
+            else response.get("id_token_claims", {}))  # Mid-tier would provide id_token_claims
         client_info, home_account_id = self.__parse_account(response, id_token_claims)
 
         target = ' '.join(event.get("scope") or [])  # Per schema, we don't sort it
