@@ -189,8 +189,10 @@ class TokenCache(object):
                     "home_account_id": home_account_id,
                     "environment": environment,
                     "realm": realm,
-                    "local_account_id": id_token_claims.get(
-                        "oid", id_token_claims.get("sub")),
+                    "local_account_id": event.get(
+                        "_account_id",  # Came from mid-tier code path.
+                            # Emperically, it is the oid in AAD or cid in MSA.
+                        id_token_claims.get("oid", id_token_claims.get("sub"))),
                     "username": id_token_claims.get("preferred_username")  # AAD
                         or id_token_claims.get("upn")  # ADFS 2019
                         or data.get("username")  # Falls back to ROPC username
