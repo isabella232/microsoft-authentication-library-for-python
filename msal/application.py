@@ -69,7 +69,7 @@ def _str2bytes(raw):
 def _clean_up(result):
     if isinstance(result, dict):
         result.pop("refresh_in", None)  # MSAL handled refresh_in, customers need not
-    return result
+    return {k: result[k] for k in result if not k.startswith('_')}
 
 
 def _preferred_browser():
@@ -1214,22 +1214,25 @@ class ClientApplication(object):
         assert refresh_reason, "It should have been established at this point"
         try:
             if sys.platform == "win32":
-                from .wam import _acquire_token_silently, BROKER_UNAVAILABLE
-                response = _acquire_token_silently(
-                    "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
-                    self.client_id,
-                    account["local_account_id"],
-                    " ".join(scopes))
-                if response.get("error") != BROKER_UNAVAILABLE:
-                    self.token_cache.add(dict(
-                        client_id=self.client_id,
-                        scope=scopes,
-                        token_endpoint=self.authority.token_endpoint,
-                        response=response.copy(),
-                        data=kwargs.get("data", {}),
-                        _account_id=response["_account_id"],
-                        ))
-                    return {k: response[k] for k in response if not k.startswith('_')}
+                try:
+                    from .wam import _acquire_token_silently
+                    response = _acquire_token_silently(
+                        "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
+                        self.client_id,
+                        account["local_account_id"],
+                        " ".join(scopes))
+                    if "error" not in response:
+                        self.token_cache.add(dict(
+                            client_id=self.client_id,
+                            scope=scopes,
+                            token_endpoint=self.authority.token_endpoint,
+                            response=response.copy(),
+                            data=kwargs.get("data", {}),
+                            _account_id=response["_account_id"],
+                            ))
+                    return _clean_up(response)
+                except ImportError:
+                    logger.exception("Mid-tier is not available in current version of Windows")
             result = _clean_up(self._acquire_token_silent_by_finding_rt_belongs_to_me_or_my_family(
                 authority, self._decorate_scope(scopes), account,
                 refresh_reason=refresh_reason, claims_challenge=claims_challenge,
@@ -1571,22 +1574,25 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
             - A dict containing an "error" key, when token refresh failed.
         """
         if sys.platform == "win32":
-            from .wam import _signin_interactively, BROKER_UNAVAILABLE
-            response = _signin_interactively(
-                "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
-                self.client_id,
-                " ".join(scopes),
-                login_hint=login_hint)
-            if response.get("error") != BROKER_UNAVAILABLE:
-                self.token_cache.add(dict(
-                    client_id=self.client_id,
-                    scope=scopes,
-                    token_endpoint=self.authority.token_endpoint,
-                    response=response.copy(),
-                    data=kwargs.get("data", {}),
-                    _account_id=response["_account_id"],
-                    ))
-                return {k: response[k] for k in response if not k.startswith('_')}
+            try:
+                from .wam import _signin_interactively
+                response = _signin_interactively(
+                    "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
+                    self.client_id,
+                    " ".join(scopes),
+                    login_hint=login_hint)
+                if "error" not in response:
+                    self.token_cache.add(dict(
+                        client_id=self.client_id,
+                        scope=scopes,
+                        token_endpoint=self.authority.token_endpoint,
+                        response=response.copy(),
+                        data=kwargs.get("data", {}),
+                        _account_id=response["_account_id"],
+                        ))
+                return _clean_up(response)
+            except ImportError:
+                logger.exception("Mid-tier is not available in current version of Windows")
 
         self._validate_ssh_cert_input_data(kwargs.get("data", {}))
         claims = _merge_claims_challenge_and_capabilities(

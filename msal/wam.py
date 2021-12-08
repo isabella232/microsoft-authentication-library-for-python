@@ -7,11 +7,11 @@ from threading import Event
 import json
 import logging
 
-import pymsalruntime  # See https://github.com/AzureAD/microsoft-authentication-library-for-cpp/pull/2419/files#diff-d5ea5122ff04e14411a4f695895c923daba73c117d6c8ceb19c4fa3520c3c08a
+import pymsalruntime  # ImportError would be raised on unsupported platforms such as Windows 8
+    # Its API description is available in site-packages/pymsalruntime/PyMsalRuntime.pyi
 import win32gui  # Came from package pywin32
 import win32console  # Came from package pywin32
 
-BROKER_UNAVAILABLE = "broker_unavailable"
 logger = logging.getLogger(__name__)
 
 
@@ -26,9 +26,6 @@ class _CallbackData:
 
 
 def _convert_error(error):
-    if False:
-        # TODO: How to convey mid-tier is unavailable (such as on Win8), so that MSAL can fallback?
-        return {"error": BROKER_UNAVAILABLE}
     return {
         "error": "broker_error",
         "error_description": "{}. Status: {}, Error code: {}, Tag: {}".format(
