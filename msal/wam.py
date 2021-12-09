@@ -77,8 +77,9 @@ def _signin_silently(authority, client_id, scope):
 
 def _signin_interactively(
         authority, client_id, scope,
-        login_hint=None,
         window=None,
+        login_hint=None,
+        prompt=None,
         ):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
@@ -86,6 +87,13 @@ def _signin_interactively(
         "https://login.microsoftonline.com/common/oauth2/nativeclient")
     if login_hint:
         params.set_login_hint(login_hint)
+    if prompt:
+        if prompt == "select_account":
+            params.set_select_account_option(
+                pymsalruntime.SelectAccountOption.SHOWLOCALACCOUNTSCONTROL)
+        else:
+            # TODO: MSAL Python might need to error out on other prompt values
+            logger.warn("prmpt=%s is not supported on this platform", prompt)
     callback_data = _CallbackData()
     pymsalruntime.signin_interactively(
         window or win32console.GetConsoleWindow() or win32gui.GetDesktopWindow(),  # TODO: Remove win32gui

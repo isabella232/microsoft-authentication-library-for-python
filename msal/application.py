@@ -1580,7 +1580,9 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
                     "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
                     self.client_id,
                     " ".join(scopes),
-                    login_hint=login_hint)
+                    login_hint=login_hint,
+                    prompt=prompt,
+                    )
                 if "error" not in response:
                     self.token_cache.add(dict(
                         client_id=self.client_id,
