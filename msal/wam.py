@@ -84,12 +84,14 @@ def _signin_interactively(
     params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
     params.set_redirect_uri(
         "https://login.microsoftonline.com/common/oauth2/nativeclient")
+    if login_hint:
+        params.set_login_hint(login_hint)
     callback_data = _CallbackData()
     pymsalruntime.signin_interactively(
         window or win32console.GetConsoleWindow() or win32gui.GetDesktopWindow(),  # TODO: Remove win32gui
         params,
         "correlation", # TODO
-        login_hint or "",  # Account hint
+        "",  # TODO: Is it OK that account hint always remains an empty string?
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
     return _convert_result(callback_data.auth_result)
