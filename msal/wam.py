@@ -78,8 +78,9 @@ def _signin_silently(authority, client_id, scope):
 def _signin_interactively(
         authority, client_id, scope,
         window=None,
-        login_hint=None,
         prompt=None,
+        login_hint=None,
+        domain_hint=None,
         ):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
@@ -91,7 +92,9 @@ def _signin_interactively(
                 pymsalruntime.SelectAccountOption.SHOWLOCALACCOUNTSCONTROL)
         else:
             # TODO: MSAL Python might need to error out on other prompt values
-            logger.warn("prmpt=%s is not supported on this platform", prompt)
+            logger.warn("prompt=%s is not supported on this platform", prompt)
+    if domain_hint:
+        params.set_additional_query_parameter("domain_hint", domain_hint)  # TODO: Does WAM really support this?
     callback_data = _CallbackData()
     pymsalruntime.signin_interactively(
         window or win32console.GetConsoleWindow() or win32gui.GetDesktopWindow(),  # TODO: Remove win32gui
