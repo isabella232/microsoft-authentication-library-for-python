@@ -1581,6 +1581,10 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
         if sys.platform == "win32":
             try:
                 from .wam import _signin_interactively
+                if extra_scopes_to_consent:  # TODO: Not supported in WAM/Mid-tier
+                    logger.warn(
+                        "Ignoring parameter extra_scopes_to_consent, "
+                        "which is not supported on current platform")
                 response = _signin_interactively(
                     "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
                     self.client_id,
@@ -1588,6 +1592,7 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
                     login_hint=login_hint,
                     prompt=prompt,
                     claims=claims,
+                    max_age=max_age,  # TODO: MSAL Python need to validate the auth_time
                     )
                 if "error" not in response:
                     self.token_cache.add(dict(

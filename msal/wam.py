@@ -80,9 +80,8 @@ def _signin_interactively(
         window=None,
         prompt=None,
         login_hint=None,
-        domain_hint=None,
         claims=None,
-        ):
+        **kwargs):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
     params.set_redirect_uri(
@@ -94,8 +93,9 @@ def _signin_interactively(
         else:
             # TODO: MSAL Python might need to error out on other prompt values
             logger.warn("prompt=%s is not supported on this platform", prompt)
-    if domain_hint:
-        params.set_additional_query_parameter("domain_hint", domain_hint)  # TODO: Does WAM really support this?
+    for k, v in kwargs.items():  # This can be used to support domain_hint, max_age, etc.
+        if v is not None:
+            params.set_additional_query_parameter(k, str(v))  # TODO: End-to-end test
     if claims:
         params.set_decoded_claims(claims)
     callback_data = _CallbackData()
