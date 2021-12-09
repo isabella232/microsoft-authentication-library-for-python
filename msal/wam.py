@@ -81,6 +81,7 @@ def _signin_interactively(
         prompt=None,
         login_hint=None,
         domain_hint=None,
+        claims=None,
         ):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
@@ -95,6 +96,8 @@ def _signin_interactively(
             logger.warn("prompt=%s is not supported on this platform", prompt)
     if domain_hint:
         params.set_additional_query_parameter("domain_hint", domain_hint)  # TODO: Does WAM really support this?
+    if claims:
+        params.set_decoded_claims(claims)
     callback_data = _CallbackData()
     pymsalruntime.signin_interactively(
         window or win32console.GetConsoleWindow() or win32gui.GetDesktopWindow(),  # TODO: Remove win32gui
@@ -106,13 +109,15 @@ def _signin_interactively(
     return _convert_result(callback_data.auth_result)
 
 
-def _acquire_token_silently(authority, client_id, account_id, scope):
+def _acquire_token_silently(authority, client_id, account_id, scope, claims=None):
     account = _read_account_by_id(account_id)
     error = account.get_error()
     if error:
         return _convert_error(error)
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scope)
+    if claims:
+        params.set_decoded_claims(claims)
     callback_data = _CallbackData()
     pymsalruntime.acquire_token_silently(
         params,
