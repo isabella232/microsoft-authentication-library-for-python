@@ -9,8 +9,6 @@ import logging
 
 import pymsalruntime  # ImportError would be raised on unsupported platforms such as Windows 8
     # Its API description is available in site-packages/pymsalruntime/PyMsalRuntime.pyi
-import win32gui  # Came from package pywin32
-import win32console  # Came from package pywin32
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +104,7 @@ def _signin_interactively(
         params.set_decoded_claims(claims)
     callback_data = _CallbackData()
     pymsalruntime.signin_interactively(
-        window or win32console.GetConsoleWindow() or win32gui.GetDesktopWindow(),  # TODO: Remove win32gui
+        window or pymsalruntime.get_console_window() or pymsalruntime.get_desktop_window(),  # Since pymsalruntime 0.2+
         params,
         "correlation", # TODO
         login_hint or "",  # TODO: account_hint is meant to accept login_hint, while set_login_hint() is not
