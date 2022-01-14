@@ -15,6 +15,10 @@ import win32console  # Came from package pywin32
 logger = logging.getLogger(__name__)
 
 
+class NeedRedirectURI(ValueError):
+    pass
+
+
 class _CallbackData:
     def __init__(self):
         self.signal = Event()
@@ -108,7 +112,12 @@ def _signin_interactively(
         login_hint or "",  # TODO: account_hint is meant to accept login_hint, while set_login_hint() is not
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
-    return _convert_result(callback_data.auth_result)
+    result =_convert_result(callback_data.auth_result)
+    if "AADSTS50011" in result.get("error_description", ""):
+        raise NeedRedirectURI(
+            "Please register one more redirect_uri to your app: "
+            "ms-appx-web://Microsoft.AAD.BrokerPlugin/{}".format(client_id))
+    return result
 
 
 def _acquire_token_silently(authority, client_id, account_id, scope, claims=None):

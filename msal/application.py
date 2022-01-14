@@ -1584,7 +1584,7 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
             self._client_capabilities, claims_challenge)
         if sys.platform == "win32":
             try:
-                from .wam import _signin_interactively
+                from .wam import _signin_interactively, NeedRedirectURI
                 if extra_scopes_to_consent:  # TODO: Not supported in WAM/Mid-tier
                     logger.warn(
                         "Ignoring parameter extra_scopes_to_consent, "
@@ -1610,6 +1610,8 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
                 return _clean_up(response)
             except ImportError:
                 logger.exception("Mid-tier is not available in current version of Windows")
+            except NeedRedirectURI as e:  # Experimental: Catch, log, and fallback
+                logger.warning(e)
 
         self._validate_ssh_cert_input_data(kwargs.get("data", {}))
         telemetry_context = self._build_telemetry_context(
