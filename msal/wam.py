@@ -53,6 +53,8 @@ def _convert_result(result):  # Mimic an on-the-wire response from AAD
     id_token_claims = json.loads(result.get_id_token()) if result.get_id_token() else {}
     account = result.get_account()
     assert account, "Account is expected to be always available"
+    ## Note: As of pymsalruntime 0.1.0, only wam_account_ids property is available
+    #account.get_account_property("wam_account_ids")
     return {k: v for k, v in {
         "access_token": result.get_access_token(),
         "expires_in": result.get_access_token_expiry_time(),
@@ -84,8 +86,8 @@ def _signin_interactively(
         **kwargs):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
-    params.set_redirect_uri(
-        "https://login.microsoftonline.com/common/oauth2/nativeclient")
+    params.set_redirect_uri("placeholder")  # pymsalruntime 0.1 requires non-empty str,
+        # the actual redirect_uri will be a value hardcoded by the underlying WAM
     if prompt:
         if prompt == "select_account":
             params.set_select_account_option(

@@ -68,8 +68,12 @@ def _str2bytes(raw):
 
 def _clean_up(result):
     if isinstance(result, dict):
-        result.pop("refresh_in", None)  # MSAL handled refresh_in, customers need not
-    return {k: result[k] for k in result if not k.startswith('_')}
+        return {
+            k: result[k] for k in result
+            if k != "refresh_in"  # MSAL handled refresh_in, customers need not
+            and not k.startswith('_')  # Skim internal properties
+            }
+    return result  # It could be None
 
 
 def _preferred_browser():
