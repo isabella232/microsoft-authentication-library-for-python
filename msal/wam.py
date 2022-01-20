@@ -27,11 +27,16 @@ class _CallbackData:
         self.auth_result = auth_result
 
 
-def _convert_error(error):
+def _convert_error(error, client_id):
+    context = error.get_context()  # Available since pymsalruntime 0.0.4
+    if "AADSTS50011" in context:  # In WAM, this could happen on both interactive and silent flows
+        raise NeedRedirectURI(
+            "Please register one more redirect_uri to your app: "
+            "ms-appx-web://Microsoft.AAD.BrokerPlugin/{}".format(client_id))
     return {
         "error": "broker_error",
         "error_description": "{}. Status: {}, Error code: {}, Tag: {}".format(
-            error.get_context(),  # Available since pymsalruntime 0.0.4
+            context,
             error.get_status(), error.get_error_code(), error.get_tag()),
         }
 
@@ -48,10 +53,10 @@ def _read_account_by_id(account_id):
     return callback_data.auth_result
 
 
-def _convert_result(result):  # Mimic an on-the-wire response from AAD
+def _convert_result(result, client_id):  # Mimic an on-the-wire response from AAD
     error = result.get_error()
     if error:
-        return _convert_error(error)
+        return _convert_error(error, client_id)
     id_token_claims = json.loads(result.get_id_token()) if result.get_id_token() else {}
     account = result.get_account()
     assert account, "Account is expected to be always available"
@@ -79,7 +84,7 @@ def _signin_silently(authority, client_id, scopes):
         "correlation", # TODO
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
-    return _convert_result(callback_data.auth_result)
+    return _convert_result(callback_data.auth_result, client_id)
 
 
 def _signin_interactively(
@@ -113,19 +118,14 @@ def _signin_interactively(
         login_hint or "",
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
-    result =_convert_result(callback_data.auth_result)
-    if "AADSTS50011" in result.get("error_description", ""):
-        raise NeedRedirectURI(
-            "Please register one more redirect_uri to your app: "
-            "ms-appx-web://Microsoft.AAD.BrokerPlugin/{}".format(client_id))
-    return result
+    return _convert_result(callback_data.auth_result, client_id)
 
 
 def _acquire_token_silently(authority, client_id, account_id, scopes, claims=None):
     account = _read_account_by_id(account_id)
     error = account.get_error()
     if error:
-        return _convert_error(error)
+        return _convert_error(error, client_id)
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scopes)
     if claims:
@@ -137,7 +137,7 @@ def _acquire_token_silently(authority, client_id, account_id, scopes, claims=Non
         account.get_account(),
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
-    return _convert_result(callback_data.auth_result)
+    return _convert_result(callback_data.auth_result, client_id)
 
 
 def _acquire_token_interactively(
@@ -156,7 +156,7 @@ def _acquire_token_interactively(
     account = _read_account_by_id(account_id)
     error = account.get_error()
     if error:
-        return _convert_error(error)
+        return _convert_error(error, client_id)
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
     params.set_requested_scopes(scopes)
     if claims:
