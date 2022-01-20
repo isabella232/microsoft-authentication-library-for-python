@@ -57,19 +57,22 @@ def _convert_result(result):  # Mimic an on-the-wire response from AAD
     assert account, "Account is expected to be always available"
     ## Note: As of pymsalruntime 0.1.0, only wam_account_ids property is available
     #account.get_account_property("wam_account_ids")
-    return {k: v for k, v in {
+    return_value = {k: v for k, v in {
         "access_token": result.get_access_token(),
         "expires_in": result.get_access_token_expiry_time(),
-        #"scope": result.get_granted_scopes(),  # TODO
         "id_token_claims": id_token_claims,
         "client_info": account.get_client_info(),
         "_account_id": account.get_account_id(),
         }.items() if v}
+    granted_scopes = result.get_granted_scopes()  # New in pymsalruntime 0.3.x
+    if granted_scopes:
+        return_value["scope"] = " ".join(granted_scopes)  # Mimic the on-the-wire data format
+    return return_value
 
 
-def _signin_silently(authority, client_id, scope):
+def _signin_silently(authority, client_id, scopes):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
-    params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
+    params.set_requested_scopes(scopes)
     callback_data = _CallbackData()
     pymsalruntime.signin_silently(
         params,
@@ -80,14 +83,14 @@ def _signin_silently(authority, client_id, scope):
 
 
 def _signin_interactively(
-        authority, client_id, scope,
+        authority, client_id, scopes,
         window=None,
         prompt=None,
         login_hint=None,
         claims=None,
         **kwargs):
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
-    params.set_requested_scopes(scope or "https://graph.microsoft.com/.default")
+    params.set_requested_scopes(scopes)
     params.set_redirect_uri("placeholder")  # pymsalruntime 0.1 requires non-empty str,
         # the actual redirect_uri will be a value hardcoded by the underlying WAM
     if prompt:
@@ -99,7 +102,7 @@ def _signin_interactively(
             logger.warn("prompt=%s is not supported on this platform", prompt)
     for k, v in kwargs.items():  # This can be used to support domain_hint, max_age, etc.
         if v is not None:
-            params.set_additional_query_parameter(k, str(v))  # TODO: End-to-end test
+            params.set_additional_parameter(k, str(v))  # TODO: End-to-end test
     if claims:
         params.set_decoded_claims(claims)
     callback_data = _CallbackData()
@@ -107,7 +110,7 @@ def _signin_interactively(
         window or pymsalruntime.get_console_window() or pymsalruntime.get_desktop_window(),  # Since pymsalruntime 0.2+
         params,
         "correlation", # TODO
-        login_hint or "",  # TODO: account_hint is meant to accept login_hint, while set_login_hint() is not
+        login_hint or "",
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
     result =_convert_result(callback_data.auth_result)
@@ -118,13 +121,13 @@ def _signin_interactively(
     return result
 
 
-def _acquire_token_silently(authority, client_id, account_id, scope, claims=None):
+def _acquire_token_silently(authority, client_id, account_id, scopes, claims=None):
     account = _read_account_by_id(account_id)
     error = account.get_error()
     if error:
         return _convert_error(error)
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
-    params.set_requested_scopes(scope)
+    params.set_requested_scopes(scopes)
     if claims:
         params.set_decoded_claims(claims)
     callback_data = _CallbackData()
@@ -140,29 +143,31 @@ def _acquire_token_silently(authority, client_id, account_id, scope, claims=None
 def _acquire_token_interactively(
         authority,
         client_id,
-        account,
+        account_id,
         scopes,
         prompt=None,  # TODO: Perhaps WAM would not accept this?
-        login_hint=None,  # type: Optional[str]
         domain_hint=None,  # TODO: Perhaps WAM would not accept this?
-        claims_challenge=None,
+        claims=None,
         timeout=None,  # TODO
         extra_scopes_to_consent=None,  # TODO: Perhaps WAM would not accept this?
         max_age=None,  # TODO: Perhaps WAM would not accept this?
         **kwargs):
+    raise NotImplementedError("We ended up not currently using this function")
+    account = _read_account_by_id(account_id)
+    error = account.get_error()
+    if error:
+        return _convert_error(error)
     params = pymsalruntime.MSALRuntimeAuthParameters(client_id, authority)
-    params.set_requested_scopes(" ".join(scopes))
-    if login_hint:
-        params.set_login_hint(login_hint)
-    if claims_challenge:
-        params.set_claims(claims_challenge)
+    params.set_requested_scopes(scopes)
+    if claims:
+        params.set_decoded_claims(claims)
     # TODO: Wire up other input parameters too
     callback_data = _CallbackData()
     pymsalruntime.acquire_token_interactively(
         window,  # TODO
         params,
         "correlation", # TODO
-        account,
+        account.get_account(),
         lambda result, callback_data=callback_data: callback_data.complete(result))
     callback_data.signal.wait()
     return callback_data.auth_result

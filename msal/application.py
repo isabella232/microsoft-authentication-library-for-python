@@ -1224,14 +1224,14 @@ class ClientApplication(object):
                         "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
                         self.client_id,
                         account["local_account_id"],
-                        " ".join(scopes),
+                        scopes,
                         claims=_merge_claims_challenge_and_capabilities(
                             self._client_capabilities, claims_challenge),
                         )
                     if "error" not in response:
                         self.token_cache.add(dict(
                             client_id=self.client_id,
-                            scope=scopes,
+                            scope=response["scope"].split() if "scope" in response else scopes,
                             token_endpoint=self.authority.token_endpoint,
                             response=response.copy(),
                             data=kwargs.get("data", {}),
@@ -1592,7 +1592,7 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
                 response = _signin_interactively(
                     "https://{}/{}".format(self.authority.instance, self.authority.tenant),  # TODO: What about B2C & ADFS?
                     self.client_id,
-                    " ".join(scopes),
+                    scopes,
                     login_hint=login_hint,
                     prompt=prompt,
                     claims=claims,
@@ -1601,7 +1601,7 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
                 if "error" not in response:
                     self.token_cache.add(dict(
                         client_id=self.client_id,
-                        scope=scopes,
+                        scope=response["scope"].split() if "scope" in response else scopes,
                         token_endpoint=self.authority.token_endpoint,
                         response=response.copy(),
                         data=kwargs.get("data", {}),

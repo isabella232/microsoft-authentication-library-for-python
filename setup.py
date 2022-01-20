@@ -72,6 +72,7 @@ setup(
         # and tend to fail because of insufficient permission.
         # See https://stackoverflow.com/a/14211600/728675 for more detail
     install_requires=[
+        "pymsalruntime>=0.3,<2;python_version>='3' and platform_system=='Windows'",
         'requests>=2.0.0,<3',
         'PyJWT[crypto]>=1.0.0,<3',
 
